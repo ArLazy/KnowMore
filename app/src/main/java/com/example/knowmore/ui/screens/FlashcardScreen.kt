@@ -49,12 +49,13 @@ fun FlashcardScreen(
             contentAlignment = Alignment.Center
         ) {
             when {
-                uiState.isLoading -> {
+                uiState.isLoading || uiState.isTransitioning -> {
                     CircularProgressIndicator()
                 }
                 uiState.sessionComplete -> {
                     SessionCompleteContent(
                         reviewedCount = uiState.reviewedCount,
+                        nextReviewDate = uiState.nextReviewDate,
                         onFinish = onNavigateBack
                     )
                 }
@@ -68,6 +69,9 @@ fun FlashcardScreen(
                         onFlip = { viewModel.flipCard() },
                         onRate = { quality -> viewModel.rateWord(quality) }
                     )
+                }
+                else -> {
+                    EmptyFilterContent(onNavigateBack = onNavigateBack)
                 }
             }
         }
@@ -235,8 +239,25 @@ private fun RatingButton(
 @Composable
 private fun SessionCompleteContent(
     reviewedCount: Int,
+    nextReviewDate: Long?,
     onFinish: () -> Unit
 ) {
+    val nextReviewText = nextReviewDate?.let { date ->
+        val now = System.currentTimeMillis()
+        val diffMillis = date - now
+        val diffMinutes = diffMillis / (60 * 1000)
+        val diffHours = diffMillis / (60 * 60 * 1000)
+        val diffDays = diffMillis / (24 * 60 * 60 * 1000)
+        
+        when {
+            diffMinutes <= 1 -> "less than a minute"
+            diffMinutes < 60 -> "$diffMinutes minutes"
+            diffHours < 24 -> "$diffHours hours"
+            diffDays == 1L -> "1 day"
+            else -> "$diffDays days"
+        }
+    } ?: "No words to review"
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -258,9 +279,49 @@ private fun SessionCompleteContent(
             text = "You reviewed $reviewedCount words",
             style = MaterialTheme.typography.bodyLarge
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Next review in: $nextReviewText",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = onFinish) {
             Text("Finish")
+        }
+    }
+}
+
+@Composable
+private fun EmptyFilterContent(
+    onNavigateBack: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Close,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "No words found",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "No words available for this filter.\nTry a different language or category, or add more words.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(onClick = onNavigateBack) {
+            Text("Go Back")
         }
     }
 }

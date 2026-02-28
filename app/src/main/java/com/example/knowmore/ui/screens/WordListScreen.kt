@@ -19,7 +19,7 @@ import com.example.knowmore.ui.viewmodel.WordListViewModel
 fun WordListScreen(
     viewModel: WordListViewModel,
     onNavigateBack: () -> Unit,
-    onNavigateToAddWord: () -> Unit
+    onNavigateToAddWord: (Word?) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf<Word?>(null) }
@@ -39,7 +39,7 @@ fun WordListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onNavigateToAddWord) {
+            FloatingActionButton(onClick = { onNavigateToAddWord(null) }) {
                 Icon(Icons.Default.Add, contentDescription = "Add Word")
             }
         }
@@ -85,7 +85,7 @@ fun WordListScreen(
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        TextButton(onClick = onNavigateToAddWord) {
+                        TextButton(onClick = { onNavigateToAddWord(null) }) {
                             Text("Add your first word")
                         }
                     }
@@ -98,6 +98,7 @@ fun WordListScreen(
                     items(uiState.filteredWords, key = { it.id }) { word ->
                         WordItem(
                             word = word,
+                            onEdit = { onNavigateToAddWord(word) },
                             onDelete = { showDeleteDialog = word }
                         )
                     }
@@ -133,12 +134,14 @@ fun WordListScreen(
 @Composable
 private fun WordItem(
     word: Word,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .padding(vertical = 4.dp),
+        onClick = onEdit
     ) {
         Row(
             modifier = Modifier

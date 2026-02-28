@@ -28,7 +28,11 @@ object SpacedRepetitionAlgorithm {
             newEaseFactor
         )
 
-        val nextReviewDate = System.currentTimeMillis() + (newInterval * 24 * 60 * 60 * 1000L)
+        val nextReviewDate = if (newInterval == 0) {
+            System.currentTimeMillis() + (1 * 60 * 1000L)
+        } else {
+            System.currentTimeMillis() + (newInterval * 24 * 60 * 60 * 1000L)
+        }
 
         return SpacedRepetitionResult(
             easeFactor = newEaseFactor,
@@ -50,6 +54,9 @@ object SpacedRepetitionAlgorithm {
         easeFactor: Float
     ): Pair<Int, Int> {
         return when {
+            quality == 0 -> {
+                Pair(0, 0)
+            }
             quality < 3 -> {
                 Pair(1, 0)
             }
@@ -60,7 +67,13 @@ object SpacedRepetitionAlgorithm {
                 Pair(6, 2)
             }
             else -> {
-                val newInterval = (currentInterval * easeFactor).toInt()
+                val multiplier = when (quality) {
+                    3 -> easeFactor * 0.8f
+                    4 -> easeFactor
+                    5 -> easeFactor * 1.3f
+                    else -> easeFactor
+                }
+                val newInterval = (currentInterval * multiplier).toInt().coerceAtLeast(1)
                 Pair(newInterval, currentRepetitions + 1)
             }
         }

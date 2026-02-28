@@ -13,14 +13,21 @@ data class FlashcardUiState(
     val currentWordIndex: Int = 0,
     val isFlipped: Boolean = false,
     val isLoading: Boolean = true,
+    val isTransitioning: Boolean = false,
     val sessionComplete: Boolean = false,
-    val reviewedCount: Int = 0
+    val reviewedCount: Int = 0,
+    val nextReviewDate: Long? = null
 ) {
     val currentWord: Word?
         get() = wordsToReview.getOrNull(currentWordIndex)
 }
 
-class FlashcardViewModel(private val repository: WordRepository) : ViewModel() {
+class FlashcardViewModel(
+    private val repository: WordRepository,
+    private val languageFilter: String? = null,
+    private val categoryFilter: String? = null,
+    private val genericFilter: String? = null
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FlashcardUiState())
     val uiState: StateFlow<FlashcardUiState> = _uiState.asStateFlow()
@@ -31,7 +38,14 @@ class FlashcardViewModel(private val repository: WordRepository) : ViewModel() {
 
     private fun loadWordsForReview() {
         viewModelScope.launch {
-            repository.getWordsForReview().collect { words ->
+            val wordsFlow = when {
+                genericFilter != null -> repository.getWordsForReviewByFilter(genericFilter)
+                languageFilter != null -> repository.getWordsForReviewByLanguage(languageFilter)
+                categoryFilter != null -> repository.getWordsForReviewByCategory(categoryFilter)
+                else -> repository.getWordsForReview()
+            }
+            
+            wordsFlow.collect { words ->
                 _uiState.update { state ->
                     state.copy(
                         wordsToReview = words,
@@ -51,19 +65,30 @@ class FlashcardViewModel(private val repository: WordRepository) : ViewModel() {
         val currentState = _uiState.value
         val currentWord = currentState.currentWord ?: return
 
+        _uiState.update { it.copy(isTransitioning = true) }
+        
         viewModelScope.launch {
-            repository.reviewWord(currentWord, quality)
+            val updatedWord = repository.reviewWord(currentWord, quality)
             
             val newReviewedCount = currentState.reviewedCount + 1
             val nextIndex = currentState.currentWordIndex + 1
             val isComplete = nextIndex >= currentState.wordsToReview.size
+            
+            val currentMinReviewDate = currentState.nextReviewDate
+            val newMinReviewDate = if (currentMinReviewDate == null || updatedWord.nextReviewDate < currentMinReviewDate) {
+                updatedWord.nextReviewDate
+            } else {
+                currentMinReviewDate
+            }
 
             _uiState.update { state ->
                 state.copy(
                     currentWordIndex = if (isComplete) state.currentWordIndex else nextIndex,
                     isFlipped = false,
+                    isTransitioning = false,
                     sessionComplete = isComplete,
-                    reviewedCount = newReviewedCount
+                    reviewedCount = newReviewedCount,
+                    nextReviewDate = if (isComplete) newMinReviewDate else state.nextReviewDate
                 )
             }
         }
@@ -75,16 +100,22 @@ class FlashcardViewModel(private val repository: WordRepository) : ViewModel() {
                 currentWordIndex = 0,
                 isFlipped = false,
                 sessionComplete = false,
-                reviewedCount = 0
+                reviewedCount = 0,
+                nextReviewDate = null
             )
         }
     }
 
-    class Factory(private val repository: WordRepository) : ViewModelProvider.Factory {
+    class Factory(
+        private val repository: WordRepository,
+        private val languageFilter: String? = null,
+        private val categoryFilter: String? = null,
+        private val genericFilter: String? = null
+    ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(FlashcardViewModel::class.java)) {
-                return FlashcardViewModel(repository) as T
+                return FlashcardViewModel(repository, languageFilter, categoryFilter, genericFilter) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

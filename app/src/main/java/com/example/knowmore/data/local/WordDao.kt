@@ -43,4 +43,19 @@ interface WordDao {
 
     @Query("SELECT DISTINCT category FROM words")
     fun getAllCategories(): Flow<List<String>>
+
+    @Query("SELECT * FROM words WHERE nextReviewDate <= :currentTime AND language = :language ORDER BY nextReviewDate ASC")
+    fun getWordsForReviewByLanguage(currentTime: Long, language: String): Flow<List<Word>>
+
+    @Query("SELECT * FROM words WHERE nextReviewDate <= :currentTime AND category = :category ORDER BY nextReviewDate ASC")
+    fun getWordsForReviewByCategory(currentTime: Long, category: String): Flow<List<Word>>
+
+    @Query("SELECT COUNT(*) FROM words WHERE nextReviewDate <= :currentTime AND language = :language")
+    fun getWordsToReviewCountByLanguage(currentTime: Long, language: String): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM words WHERE nextReviewDate <= :currentTime AND category = :category")
+    fun getWordsToReviewCountByCategory(currentTime: Long, category: String): Flow<Int>
+
+    @Query("SELECT * FROM words WHERE nextReviewDate <= :currentTime AND (language = :filter OR category = :filter) ORDER BY nextReviewDate ASC")
+    fun getWordsForReviewByFilter(currentTime: Long, filter: String): Flow<List<Word>>
 }

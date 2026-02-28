@@ -96,6 +96,10 @@ class WordListViewModel(private val repository: WordRepository) : ViewModel() {
         }
     }
 
+    suspend fun getWordById(id: Long): Word? {
+        return repository.getWordById(id)
+    }
+
     class Factory(private val repository: WordRepository) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
