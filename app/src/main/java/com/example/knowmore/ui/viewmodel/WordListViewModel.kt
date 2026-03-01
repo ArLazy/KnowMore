@@ -72,16 +72,14 @@ class WordListViewModel(private val repository: WordRepository) : ViewModel() {
         _selectedCategory.value = category
     }
 
-    fun addWord(originalWord: String, translatedWord: String, language: String, category: String) {
-        viewModelScope.launch {
-            val word = Word(
-                originalWord = originalWord,
-                translatedWord = translatedWord,
-                language = language,
-                category = category
-            )
-            repository.addWord(word)
-        }
+    suspend fun addWord(originalWord: String, translatedWord: String, language: String, category: String) {
+        val word = Word(
+            originalWord = originalWord,
+            translatedWord = translatedWord,
+            language = language,
+            category = category
+        )
+        repository.addWord(word)
     }
 
     fun updateWord(word: Word) {

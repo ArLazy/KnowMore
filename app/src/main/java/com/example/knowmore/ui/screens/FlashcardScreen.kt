@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -23,6 +24,7 @@ import com.example.knowmore.ui.viewmodel.FlashcardViewModel
 @Composable
 fun FlashcardScreen(
     viewModel: FlashcardViewModel,
+    soundManager: com.example.knowmore.ui.util.SoundManager,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -32,7 +34,10 @@ fun FlashcardScreen(
             TopAppBar(
                 title = { Text("Flashcard Review") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = {
+                        soundManager.playTapClick()
+                        onNavigateBack()
+                    }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -49,29 +54,51 @@ fun FlashcardScreen(
             contentAlignment = Alignment.Center
         ) {
             when {
-                uiState.isLoading || uiState.isTransitioning -> {
+                uiState.isLoading -> {
                     CircularProgressIndicator()
                 }
-                uiState.sessionComplete -> {
+                uiState.sessionComplete && uiState.hasWords -> {
                     SessionCompleteContent(
                         reviewedCount = uiState.reviewedCount,
                         nextReviewDate = uiState.nextReviewDate,
-                        onFinish = onNavigateBack
+                        onFinish = onNavigateBack,
+                        soundManager = soundManager
+                    )
+                }
+                uiState.sessionComplete && !uiState.hasWords -> {
+                    EmptyFilterContent(
+                        onNavigateBack = onNavigateBack,
+                        soundManager = soundManager
                     )
                 }
                 uiState.currentWord != null -> {
+                    val isLastWord = uiState.currentWordIndex == uiState.wordsToReview.size - 1
                     FlashcardContent(
                         word = uiState.currentWord!!.originalWord,
                         translation = uiState.currentWord!!.translatedWord,
                         isFlipped = uiState.isFlipped,
                         currentIndex = uiState.currentWordIndex,
                         totalWords = uiState.wordsToReview.size,
-                        onFlip = { viewModel.flipCard() },
-                        onRate = { quality -> viewModel.rateWord(quality) }
+                        isCompleting = uiState.isCompleting,
+                        onFlip = {
+                            soundManager.playWhoosh()
+                            viewModel.flipCard()
+                        },
+                        onRate = { quality ->
+                            soundManager.playTapClick()
+                            if (isLastWord) {
+                                soundManager.playComplete()
+                            }
+                            viewModel.rateWord(quality)
+                        },
+                        soundManager = soundManager
                     )
                 }
                 else -> {
-                    EmptyFilterContent(onNavigateBack = onNavigateBack)
+                    EmptyFilterContent(
+                        onNavigateBack = onNavigateBack,
+                        soundManager = soundManager
+                    )
                 }
             }
         }
@@ -85,8 +112,10 @@ private fun FlashcardContent(
     isFlipped: Boolean,
     currentIndex: Int,
     totalWords: Int,
+    isCompleting: Boolean,
     onFlip: () -> Unit,
-    onRate: (Int) -> Unit
+    onRate: (Int) -> Unit,
+    soundManager: com.example.knowmore.ui.util.SoundManager
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (isFlipped) 180f else 0f,
@@ -180,7 +209,9 @@ private fun FlashcardContent(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        if (isFlipped) {
+        if (isCompleting) {
+            CircularProgressIndicator()
+        } else if (isFlipped) {
             Text(
                 text = "How well did you remember?",
                 style = MaterialTheme.typography.titleMedium
@@ -213,7 +244,10 @@ private fun FlashcardContent(
             }
         } else {
             Button(
-                onClick = onFlip,
+                onClick = {
+                    soundManager.playTapClick()
+                    onFlip()
+                },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Show Answer")
@@ -240,22 +274,12 @@ private fun RatingButton(
 private fun SessionCompleteContent(
     reviewedCount: Int,
     nextReviewDate: Long?,
-    onFinish: () -> Unit
+    onFinish: () -> Unit,
+    soundManager: com.example.knowmore.ui.util.SoundManager
 ) {
     val nextReviewText = nextReviewDate?.let { date ->
-        val now = System.currentTimeMillis()
-        val diffMillis = date - now
-        val diffMinutes = diffMillis / (60 * 1000)
-        val diffHours = diffMillis / (60 * 60 * 1000)
-        val diffDays = diffMillis / (24 * 60 * 60 * 1000)
-        
-        when {
-            diffMinutes <= 1 -> "less than a minute"
-            diffMinutes < 60 -> "$diffMinutes minutes"
-            diffHours < 24 -> "$diffHours hours"
-            diffDays == 1L -> "1 day"
-            else -> "$diffDays days"
-        }
+        val dateFormat = java.text.SimpleDateFormat("EEEE, MMMM d 'at' HH:mm", java.util.Locale.ENGLISH)
+        dateFormat.format(java.util.Date(date))
     } ?: "No words to review"
 
     Column(
@@ -270,7 +294,7 @@ private fun SessionCompleteContent(
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Session Complete!",
+            text = "Great job!",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
@@ -281,12 +305,16 @@ private fun SessionCompleteContent(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Next review in: $nextReviewText",
+            text = "Your next session is scheduled for $nextReviewText",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onFinish) {
+        Button(onClick = {
+            soundManager.playTapClick()
+            onFinish()
+        }) {
             Text("Finish")
         }
     }
@@ -294,7 +322,8 @@ private fun SessionCompleteContent(
 
 @Composable
 private fun EmptyFilterContent(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    soundManager: com.example.knowmore.ui.util.SoundManager
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -320,7 +349,10 @@ private fun EmptyFilterContent(
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onNavigateBack) {
+        Button(onClick = {
+            soundManager.playTapClick()
+            onNavigateBack()
+        }) {
             Text("Go Back")
         }
     }

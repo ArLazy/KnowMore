@@ -13,8 +13,9 @@ data class FlashcardUiState(
     val currentWordIndex: Int = 0,
     val isFlipped: Boolean = false,
     val isLoading: Boolean = true,
-    val isTransitioning: Boolean = false,
+    val isCompleting: Boolean = false,
     val sessionComplete: Boolean = false,
+    val hasWords: Boolean = false,
     val reviewedCount: Int = 0,
     val nextReviewDate: Long? = null
 ) {
@@ -38,19 +39,22 @@ class FlashcardViewModel(
 
     private fun loadWordsForReview() {
         viewModelScope.launch {
-            val wordsFlow = when {
-                genericFilter != null -> repository.getWordsForReviewByFilter(genericFilter)
-                languageFilter != null -> repository.getWordsForReviewByLanguage(languageFilter)
-                categoryFilter != null -> repository.getWordsForReviewByCategory(categoryFilter)
-                else -> repository.getWordsForReview()
+            val currentTime = System.currentTimeMillis()
+            val baseFlow = when {
+                genericFilter != null -> repository.getReactiveWordsForReviewByFilter(genericFilter)
+                languageFilter != null -> repository.getReactiveWordsForReviewByLanguage(languageFilter)
+                categoryFilter != null -> repository.getReactiveWordsForReviewByCategory(categoryFilter)
+                else -> repository.getReactiveWordsForReview()
             }
             
-            wordsFlow.collect { words ->
+            baseFlow.collect { allWords ->
+                val words = allWords.filter { it.nextReviewDate <= currentTime }
                 _uiState.update { state ->
                     state.copy(
                         wordsToReview = words,
                         isLoading = false,
-                        sessionComplete = words.isEmpty()
+                        sessionComplete = words.isEmpty(),
+                        hasWords = words.isNotEmpty()
                     )
                 }
             }
@@ -65,31 +69,43 @@ class FlashcardViewModel(
         val currentState = _uiState.value
         val currentWord = currentState.currentWord ?: return
 
-        _uiState.update { it.copy(isTransitioning = true) }
-        
+        val newReviewedCount = currentState.reviewedCount + 1
+        val nextIndex = currentState.currentWordIndex + 1
+        val isComplete = nextIndex >= currentState.wordsToReview.size
+
+        _uiState.update { state ->
+            state.copy(
+                currentWordIndex = if (isComplete) state.currentWordIndex else nextIndex,
+                isFlipped = false,
+                isCompleting = isComplete,
+                sessionComplete = false,
+                reviewedCount = newReviewedCount
+            )
+        }
+
         viewModelScope.launch {
             val updatedWord = repository.reviewWord(currentWord, quality)
-            
-            val newReviewedCount = currentState.reviewedCount + 1
-            val nextIndex = currentState.currentWordIndex + 1
-            val isComplete = nextIndex >= currentState.wordsToReview.size
-            
-            val currentMinReviewDate = currentState.nextReviewDate
+
+            val currentMinReviewDate = _uiState.value.nextReviewDate
             val newMinReviewDate = if (currentMinReviewDate == null || updatedWord.nextReviewDate < currentMinReviewDate) {
                 updatedWord.nextReviewDate
             } else {
                 currentMinReviewDate
             }
 
-            _uiState.update { state ->
-                state.copy(
-                    currentWordIndex = if (isComplete) state.currentWordIndex else nextIndex,
-                    isFlipped = false,
-                    isTransitioning = false,
-                    sessionComplete = isComplete,
-                    reviewedCount = newReviewedCount,
-                    nextReviewDate = if (isComplete) newMinReviewDate else state.nextReviewDate
-                )
+            if (isComplete) {
+                kotlinx.coroutines.delay(600)
+                _uiState.update { state ->
+                    state.copy(
+                        sessionComplete = true,
+                        isCompleting = false,
+                        nextReviewDate = newMinReviewDate
+                    )
+                }
+            } else {
+                _uiState.update { state ->
+                    state.copy(nextReviewDate = newMinReviewDate)
+                }
             }
         }
     }

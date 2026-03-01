@@ -22,6 +22,13 @@ class DashboardViewModel(private val repository: WordRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
+    private val reactiveWordsForReview: StateFlow<List<Word>> = repository.getReactiveWordsForReview()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     init {
         loadDashboardData()
     }
@@ -30,10 +37,12 @@ class DashboardViewModel(private val repository: WordRepository) : ViewModel() {
         viewModelScope.launch {
             combine(
                 repository.getTotalWordCount(),
-                repository.getWordsToReviewCount(),
+                reactiveWordsForReview,
                 repository.getAllLanguages(),
                 repository.getAllCategories()
-            ) { total, toReview, languages, categories ->
+            ) { total, wordsForReview, languages, categories ->
+                val currentTime = System.currentTimeMillis()
+                val toReview = wordsForReview.count { it.nextReviewDate <= currentTime }
                 DashboardUiState(
                     totalWords = total,
                     wordsToReview = toReview,

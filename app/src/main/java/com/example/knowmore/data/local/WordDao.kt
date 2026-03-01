@@ -26,6 +26,9 @@ interface WordDao {
     @Query("SELECT COUNT(*) FROM words WHERE nextReviewDate <= :currentTime")
     fun getWordsToReviewCount(currentTime: Long): Flow<Int>
 
+    @Query("SELECT * FROM words ORDER BY nextReviewDate ASC")
+    fun getAllWordsForReview(): Flow<List<Word>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertWord(word: Word): Long
 
@@ -58,4 +61,13 @@ interface WordDao {
 
     @Query("SELECT * FROM words WHERE nextReviewDate <= :currentTime AND (language = :filter OR category = :filter) ORDER BY nextReviewDate ASC")
     fun getWordsForReviewByFilter(currentTime: Long, filter: String): Flow<List<Word>>
+
+    @Query("SELECT * FROM words WHERE language = :language ORDER BY nextReviewDate ASC")
+    fun getAllWordsByLanguage(language: String): Flow<List<Word>>
+
+    @Query("SELECT * FROM words WHERE category = :category ORDER BY nextReviewDate ASC")
+    fun getAllWordsByCategory(category: String): Flow<List<Word>>
+
+    @Query("SELECT * FROM words WHERE language = :filter OR category = :filter ORDER BY nextReviewDate ASC")
+    fun getAllWordsByFilter(filter: String): Flow<List<Word>>
 }

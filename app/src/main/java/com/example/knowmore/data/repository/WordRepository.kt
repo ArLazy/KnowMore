@@ -25,6 +25,18 @@ class WordRepository(private val wordDao: WordDao) {
     fun getWordsToReviewCount(): Flow<Int> = 
         wordDao.getWordsToReviewCount(System.currentTimeMillis())
 
+    fun getReactiveWordsForReview(): Flow<List<Word>> = 
+        wordDao.getAllWordsForReview()
+
+    fun getReactiveWordsForReviewByLanguage(language: String): Flow<List<Word>> = 
+        wordDao.getAllWordsByLanguage(language)
+
+    fun getReactiveWordsForReviewByCategory(category: String): Flow<List<Word>> = 
+        wordDao.getAllWordsByCategory(category)
+
+    fun getReactiveWordsForReviewByFilter(filter: String): Flow<List<Word>> = 
+        wordDao.getAllWordsByFilter(filter)
+
     fun getAllLanguages(): Flow<List<String>> = wordDao.getAllLanguages()
 
     fun getAllCategories(): Flow<List<String>> = wordDao.getAllCategories()

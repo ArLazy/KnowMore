@@ -6,7 +6,6 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.knowmore.data.local.Word
 import com.example.knowmore.ui.viewmodel.DashboardViewModel
 
@@ -22,12 +22,13 @@ import com.example.knowmore.ui.viewmodel.DashboardViewModel
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
+    soundManager: com.example.knowmore.ui.util.SoundManager,
     onNavigateToFlashcards: (language: String?, category: String?) -> Unit,
     onNavigateToWordList: () -> Unit,
     onNavigateToProgress: () -> Unit,
     onNavigateToAddWord: (Word?) -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCategoryDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -106,13 +107,24 @@ fun DashboardScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
-                            onClick = { onNavigateToFlashcards(null, null) },
+                            onClick = {
+                                if (uiState.wordsToReview > 0) {
+                                    soundManager.playTapClick()
+                                    onNavigateToFlashcards(null, null)
+                                }
+                            },
                             enabled = uiState.wordsToReview > 0,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Start Review Session")
+                            Text(
+                                if (uiState.wordsToReview > 0) {
+                                    "Start Review Session"
+                                } else {
+                                    "All done for today!"
+                                }
+                            )
                         }
                     }
                 }
@@ -131,13 +143,15 @@ fun DashboardScreen(
                         modifier = Modifier.weight(1f),
                         icon = Icons.Default.Add,
                         label = "Add Word",
-                        onClick = { onNavigateToAddWord(null) }
+                        onClick = { onNavigateToAddWord(null) },
+                        soundManager = soundManager
                     )
                     ActionButton(
                         modifier = Modifier.weight(1f),
                         icon = Icons.AutoMirrored.Filled.List,
                         label = "Word List",
-                        onClick = onNavigateToWordList
+                        onClick = onNavigateToWordList,
+                        soundManager = soundManager
                     )
                 }
 
@@ -149,13 +163,15 @@ fun DashboardScreen(
                         modifier = Modifier.weight(1f),
                         icon = Icons.Default.Info,
                         label = "Progress",
-                        onClick = onNavigateToProgress
+                        onClick = onNavigateToProgress,
+                        soundManager = soundManager
                     )
                     ActionButton(
                         modifier = Modifier.weight(1f),
                         icon = Icons.Default.Info,
                         label = "Categories",
-                        onClick = { showCategoryDialog = true }
+                        onClick = { showCategoryDialog = true },
+                        soundManager = soundManager
                     )
                 }
 
@@ -254,11 +270,15 @@ private fun ActionButton(
     modifier: Modifier = Modifier,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    soundManager: com.example.knowmore.ui.util.SoundManager
 ) {
     OutlinedCard(
         modifier = modifier,
-        onClick = onClick
+        onClick = {
+            soundManager.playTapClick()
+            onClick()
+        }
     ) {
         Column(
             modifier = Modifier

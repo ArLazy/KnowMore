@@ -130,24 +130,26 @@ fun AddWordScreen(
                         if (originalWord.isBlank() || translatedWord.isBlank() || language.isBlank()) {
                             showError = true
                         } else {
-                            if (isEditMode && existingWord != null) {
-                                viewModel.updateWord(
-                                    existingWord!!.copy(
+                            scope.launch {
+                                if (isEditMode && existingWord != null) {
+                                    viewModel.updateWord(
+                                        existingWord!!.copy(
+                                            originalWord = originalWord.trim(),
+                                            translatedWord = translatedWord.trim(),
+                                            language = language.trim(),
+                                            category = category.trim().ifBlank { "General" }
+                                        )
+                                    )
+                                } else {
+                                    viewModel.addWord(
                                         originalWord = originalWord.trim(),
                                         translatedWord = translatedWord.trim(),
                                         language = language.trim(),
                                         category = category.trim().ifBlank { "General" }
                                     )
-                                )
-                            } else {
-                                viewModel.addWord(
-                                    originalWord = originalWord.trim(),
-                                    translatedWord = translatedWord.trim(),
-                                    language = language.trim(),
-                                    category = category.trim().ifBlank { "General" }
-                                )
+                                }
+                                onNavigateBack()
                             }
-                            onNavigateBack()
                         }
                     },
                     modifier = Modifier.fillMaxWidth()

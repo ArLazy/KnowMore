@@ -13,6 +13,7 @@ import com.example.knowmore.data.local.AppDatabase
 import com.example.knowmore.data.local.Word
 import com.example.knowmore.data.repository.WordRepository
 import com.example.knowmore.ui.screens.*
+import com.example.knowmore.ui.util.SoundManager
 import com.example.knowmore.ui.viewmodel.*
 
 @Composable
@@ -20,6 +21,7 @@ fun NavGraph(navController: NavHostController) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
     val repository = remember { WordRepository(database.wordDao()) }
+    val soundManager = remember { SoundManager(context) }
 
     NavHost(
         navController = navController,
@@ -31,6 +33,7 @@ fun NavGraph(navController: NavHostController) {
             )
             DashboardScreen(
                 viewModel = viewModel,
+                soundManager = soundManager,
                 onNavigateToFlashcards = { language, category -> 
                     navController.navigate(FlashcardsRoute.createRoute(language, category))
                 },
@@ -48,6 +51,7 @@ fun NavGraph(navController: NavHostController) {
             )
             FlashcardScreen(
                 viewModel = viewModel,
+                soundManager = soundManager,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -74,6 +78,7 @@ fun NavGraph(navController: NavHostController) {
             )
             FlashcardScreen(
                 viewModel = viewModel,
+                soundManager = soundManager,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -94,6 +99,7 @@ fun NavGraph(navController: NavHostController) {
             )
             FlashcardScreen(
                 viewModel = viewModel,
+                soundManager = soundManager,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
